@@ -13,8 +13,12 @@ document.addEventListener('contextmenu', showContextMenu);
 
 function noDevTools(event) {
     if (event.key === 'F12' || (event.ctrlKey && event.shiftKey && event.key === 'I') || (event.ctrlKey && event.shiftKey && event.key === 'C')) {
-        alert('Please use F12 or right click to open Developer Tools');
-        event.preventDefault();
+        const password = prompt('Please enter the password to open Developer Tools:');
+        
+        if (password !== correctPassword) {
+            alert('Incorrect password! Developer tools are disabled.');
+            event.preventDefault();
+        }
     }
 }
 

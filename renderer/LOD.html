@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>QuadTree Tester</title>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: sans-serif; }
+        #gui {
+            position: absolute; top: 10px; left: 10px;
+            background: rgba(173, 173, 173, 0.8);
+            padding: 10px; border-radius: 8px; z-index: 10;
+        }
+        label { display: block; margin-top: 5px; font-weight: bold; }
+        button { margin-top: 10px; display: block; width: 100%; border: 0; padding: 5px; border-radius: 5px; }
+        .value { float: right; font-weight: bold; }
+    </style>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js",
+                "jsm/": "https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/",
+                "three/addons/libs/stats.module.js": "https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/libs/stats.module.js",
+                "noisejs": "https://esm.sh/noisejs@2.1.0",
+                "dat.gui": "https://esm.sh/dat.gui",
+                "three/tsl": "https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/nodes/Nodes.js"
+            }
+        }
+    </script>
+</head>
+<body>
+    <script type="module" src="./u.js"></script>
+</body>
+</html>

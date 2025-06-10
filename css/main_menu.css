@@ -86,17 +86,22 @@ Body, html {
     right: 0.5vw;
     top: 93.5vh;
 }
-#quit_popup {
-    display: none;
-
-}
 
 /* #buttons :nth-child(3){
     top:65vh;
     grid-row: 3;
 }
 
-
+#quit_popup {
+    display: none;
+    position: absolute;
+    top:40vh;
+    left: 27.3vw;
+    background-color: #282c34;
+    border-radius: 20px;
+    padding: 40px 60px 50px 50px;
+    text-align: center;
+}
 
 #quit_popup h1{
     margin-bottom: 30px;
