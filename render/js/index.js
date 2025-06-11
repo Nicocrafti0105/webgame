@@ -17,7 +17,7 @@ import { generateChunk, updateChunkLOD } from './generation.js';
 const w = window.innerWidth;
 const h = window.innerHeight;
 
-const FOV = 75;
+const FOV = 100;
 const ASPECT = w / h;
 const NEAR = 0.1;
 const FAR = 20000;
