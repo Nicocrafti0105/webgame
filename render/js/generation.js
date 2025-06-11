@@ -64,7 +64,7 @@ export function generateChunk(pos = new THREE.Vector2(0, 0), Size) {
         new THREE.Vector3(Size, noise.perlin2((worldX + Size) * baseFrequency * scale, (worldZ + Size) * baseFrequency * scale) * baseAmplitude + vars.baseY, Size),
         new THREE.Vector3(0, noise.perlin2(worldX * baseFrequency * scale, (worldZ + Size) * baseFrequency * scale) * baseAmplitude + vars.baseY, Size),
     ]);
-    const terrainMaterial = new THREE.LineBasicMaterial({ color: 0xff0000 });
+    const terrainMaterial = new THREE.LineBasicMaterial({ color: 0xff0000,blending:true });
     const terrainMesh = new THREE.LineLoop(terrainGeometry, terrainMaterial);
     terrainMesh.position.set(worldX, 0, worldZ);
     terrainMesh.name = 'chunk';
@@ -85,7 +85,9 @@ export function generateChunk(pos = new THREE.Vector2(0, 0), Size) {
 }
 
 export function updateChunkLOD(chunk, camera) {
-    const cameraDistance = camera.position.distanceTo(chunk.position);
+    const realPos = new THREE.Vector3().copy(chunk.position)
+    realPos.setY(camera.position.y)
+    const cameraDistance = camera.position.distanceTo(realPos);
     let lod = 1;
 
     if (cameraDistance > vars.chunkSize * vars.LodFactor) {
