@@ -85,7 +85,7 @@ export function generateChunk(pos = new THREE.Vector2(0, 0), Size) {
 }
 
 export function updateChunkLOD(chunk, camera) {
-    const realPos = new THREE.Vector3().copy(chunk.position)
+    let realPos = new THREE.Vector3().copy(chunk.position)
     realPos.setY(camera.position.y)
     const cameraDistance = camera.position.distanceTo(realPos);
     let lod = 1;
