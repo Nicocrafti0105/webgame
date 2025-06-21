@@ -51,41 +51,40 @@ export function generateChunk(pos = new THREE.Vector2(0, 0), Size) {
         }
     }
 
-    const outlineCornerVertices = [
-        new THREE.Vector3(0, OUTLINE_HEIGHT_OFFSET, 0),
-        new THREE.Vector3(Size, OUTLINE_HEIGHT_OFFSET, 0),
-        new THREE.Vector3(Size, OUTLINE_HEIGHT_OFFSET, Size),
-        new THREE.Vector3(0, OUTLINE_HEIGHT_OFFSET, Size),
-    ];
+    const geometry = new THREE.BufferGeometry();
+    const positions = new Float32Array(terrainVertices.length * 3);
+    for (let i = 0; i < terrainVertices.length; i++) {
+        positions[i * 3] = terrainVertices[i].x;
+        positions[i * 3 + 1] = terrainVertices[i].y;
+        positions[i * 3 + 2] = terrainVertices[i].z;
+    }
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
 
-    const terrainGeometry = new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(0, noise.perlin2(worldX * baseFrequency * scale, worldZ * baseFrequency * scale) * baseAmplitude + vars.baseY, 0),
-        new THREE.Vector3(Size, noise.perlin2((worldX + Size) * baseFrequency * scale, worldZ * baseFrequency * scale) * baseAmplitude + vars.baseY, 0),
-        new THREE.Vector3(Size, noise.perlin2((worldX + Size) * baseFrequency * scale, (worldZ + Size) * baseFrequency * scale) * baseAmplitude + vars.baseY, Size),
-        new THREE.Vector3(0, noise.perlin2(worldX * baseFrequency * scale, (worldZ + Size) * baseFrequency * scale) * baseAmplitude + vars.baseY, Size),
-    ]);
-    const terrainMaterial = new THREE.LineBasicMaterial({ color: 0xff0000,blending:true });
-    const terrainMesh = new THREE.LineLoop(terrainGeometry, terrainMaterial);
+    const indices = [];
+    for (let x = 0; x < Size; x++) {
+        for (let z = 0; z < Size; z++) {
+            const a = x * (Size + 1) + z;
+            const b = (x + 1) * (Size + 1) + z;
+            const c = (x + 1) * (Size + 1) + (z + 1);
+            const d = x * (Size + 1) + (z + 1);
+
+            indices.push(a, b, d);
+            indices.push(b, c, d);
+        }
+    }
+    geometry.setIndex(indices);
+    geometry.computeVertexNormals();
+
+    const terrainMaterial = new THREE.MeshStandardMaterial({ color: 0x88cc88, flatShading: true,side: THREE.DoubleSide });
+    const terrainMesh = new THREE.Mesh(geometry, terrainMaterial);
     terrainMesh.position.set(worldX, 0, worldZ);
     terrainMesh.name = 'chunk';
-
-    const outlineGeometry = new THREE.BufferGeometry().setFromPoints(outlineCornerVertices);
-    const outlineMaterial = new THREE.LineBasicMaterial({
-        color: 0x00ffff,
-        transparent: true,
-        opacity: vars.showChunksOutline ? 1.0 : 0.0,
-    });
-    const outlineMesh = new THREE.LineLoop(outlineGeometry, outlineMaterial);
-    outlineMesh.position.set(worldX, 0, worldZ);
-    outlineMesh.name = 'chunkOutline';
-
-    terrainMesh.userData.outlineMesh = outlineMesh;
 
     return terrainMesh;
 }
 
 export function updateChunkLOD(chunk, camera) {
-    let realPos = new THREE.Vector3().copy(chunk.position)
+    const realPos = new THREE.Vector3().copy(chunk.position)
     realPos.setY(camera.position.y)
     const cameraDistance = camera.position.distanceTo(realPos);
     let lod = 1;
@@ -103,26 +102,26 @@ export function updateChunkLOD(chunk, camera) {
         lod = 5;
     }
 
-    switch (lod) {
-        case 1:
-            chunk.material.color.set(0xff0000);
-            break;
-        case 2:
-            chunk.material.color.set(0x00ff00);
-            break;
-        case 3:
-            chunk.material.color.set(0x0000ff);
-            break;
-        case 4:
-            chunk.material.color.set(0xff00ff);
-            break;
-        case 5:
-            chunk.material.color.set(0xffff00);
-            break;
-        default:
-            chunk.material.color.set(0xffffff);
-            break;
-    }
+    // switch (lod) {
+    //     case 1:
+    //         chunk.material.color.set(0xff0000);
+    //         break;
+    //     case 2:
+    //         chunk.material.color.set(0x00ff00);
+    //         break;
+    //     case 3:
+    //         chunk.material.color.set(0x0000ff);
+    //         break;
+    //     case 4:
+    //         chunk.material.color.set(0xff00ff);
+    //         break;
+    //     case 5:
+    //         chunk.material.color.set(0xffff00);
+    //         break;
+    //     default:
+    //         chunk.material.color.set(0xffffff);
+    //         break;
+    // }
 }
 
 export function genNoiseMap(terrainWidth, terrainDepth) {
