@@ -37,7 +37,7 @@ const displayText = document.querySelector('#displayText');
 /////////////////// SETUP \\\\\\\\\\\\\\\\\\\
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x858792);
+scene.background = new THREE.Color(0xcdcde5);
 
 const camera = new THREE.PerspectiveCamera(FOV, ASPECT, NEAR, FAR);
 camera.position.set(0, 40, -10);
@@ -84,10 +84,10 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 
 /////////////////// LIGHTS \\\\\\\\\\\\\\\\\\\
 
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+const ambientLight = new THREE.AmbientLight(0xffffff, 1);
 scene.add(ambientLight);
 
-const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+const directionalLight = new THREE.DirectionalLight(0xffffff, 2);
 directionalLight.position.set(80, 20, 10);
 directionalLight.lookAt(new THREE.Vector3(0, 0, 0));
 directionalLight.castShadow = true;
@@ -256,7 +256,7 @@ export const vars = {
     wireColor: 0xe84a4a,
     wireframeEnabled: false,
     chunkSize: 8,
-    renderDistance: 16,
+    renderDistance: 32,
     LodFactor: 4,
     terrainDepth: 16,
     terrainWidth: 16,
@@ -411,67 +411,25 @@ function KeyMovement(accelDirection) {
     if (keys[' ']) accelDirection.y = 1;
 }
 
-////////////////////////// MINIMAP //////////////////////////////
 
-let lastCameraPosition = new THREE.Vector3();
-let minimapFrameCounter = 0;
-const MINIMAP_UPDATE_INTERVAL = 5;
 
-function renderMinimapIfChanged() {
-    minimapFrameCounter++;
-    if (minimapFrameCounter % MINIMAP_UPDATE_INTERVAL !== 0) {
-        return;
-    }
+const ShotCamera = new THREE.PerspectiveCamera(FOV, ASPECT, NEAR + 6, FAR - 1500);
+const ShotHelper = new THREE.CameraHelper(ShotCamera);
+scene.add(ShotHelper, ShotCamera);
+ShotHelper.visible = false;
 
-    if (!camera.position.equals(lastCameraPosition)) {
-        minimapCamera.position.set(camera.position.x, 1250, camera.position.z);
-        minimapCamera.lookAt(camera.position.x, 0, camera.position.z);
-        minimapRenderer.render(scene, minimapCamera);
-        lastCameraPosition.copy(camera.position);
-    }
-}
 
-const minimapSize = 400;
-const minimapRenderer = new THREE.WebGLRenderer({ antialias: true });
-minimapRenderer.setSize(minimapSize, minimapSize);
-minimapRenderer.domElement.style.position = 'absolute';
-minimapRenderer.domElement.style.bottom = '10px';
-minimapRenderer.domElement.style.left = '10px';
-minimapRenderer.domElement.style.border = '2px solid #222';
-minimapRenderer.domElement.style.zIndex = '10';
-document.body.appendChild(minimapRenderer.domElement);
-
-const minimapCamera = new THREE.OrthographicCamera(
-    -vars.renderDistance * vars.chunkSize,
-    vars.renderDistance * vars.chunkSize,
-    vars.renderDistance * vars.chunkSize,
-    -vars.renderDistance * vars.chunkSize,
-    0.1,
-    2000
-);
-
-minimapCamera.up.set(0, 0, -1);
-minimapCamera.lookAt(new THREE.Vector3(0, -1, 0));
-
-let minimapControlsEnabled = false;
-minimapRenderer.domElement.addEventListener('pointerdown', (e) => {
-    minimapControlsEnabled = true;
-});
-window.addEventListener('pointerup', () => {
-    minimapControlsEnabled = false;
-});
-
-minimapRenderer.domElement.addEventListener('pointermove', (e) => {
-    if (minimapControlsEnabled) {
-        const dx = (e.movementX / minimapSize) * minimapCamera.right * 2;
-        const dz = (e.movementY / minimapSize) * minimapCamera.top * 2;
-        minimapCamera.position.x -= dx;
-        minimapCamera.position.z += dz;
-    }
-});
 
 /////////////////// LOOP \\\\\\\\\\\\\\\\\\\
 let previousTime = performance.now();
+let lastCameraRotation = new THREE.Euler(0, 0, 0, 'XYZ');
+let lastCameraPosition = new THREE.Vector3();
+
+performFrustumCulling(camera, scene);
+chunkManager.update(camera.position);
+chunkManager.updateAllLODs();
+composer.render();
+
 const clock = new THREE.Clock();
 
 function loop(time) {
@@ -515,9 +473,6 @@ function loop(time) {
     PlayerMESH.position.copy(newCameraPosition);
     PlayerBox.setFromCenterAndSize(newCameraPosition, new THREE.Vector3(PLAYER_SIZE, PLAYER_HEIGHT, PLAYER_SIZE));
 
- 
-    chunkManager.update(camera.position);
-    chunkManager.updateAllLODs();
 
     displayText.innerHTML =
         'Coords -> x: ' +
@@ -533,10 +488,34 @@ function loop(time) {
         ' | z: ' +
         camera.rotation.z.toFixed(2);
 
-    performFrustumCulling(camera);
-    shapes.forEach(updateObjectVerticies);
 
-    renderMinimapIfChanged();
+    if (
+        !camera.position.equals(lastCameraPosition) ||
+        camera.rotation.x !== lastCameraRotation.x ||
+        camera.rotation.y !== lastCameraRotation.y ||
+        camera.rotation.z !== lastCameraRotation.z
+    ) {
+        chunkManager.update(camera.position);
+        chunkManager.updateAllLODs();
+        performFrustumCulling(camera, scene);
+        lastCameraPosition.copy(camera.position);
+        lastCameraRotation.copy(camera.rotation);
+    }
+    if(keys['n']) {
+        performFrustumCulling(camera, scene);
+        chunkManager.update(camera.position);
+        chunkManager.updateAllLODs();
+        ShotHelper.visible = true;
+        ShotCamera.position.copy(camera.position);
+        ShotCamera.rotation.copy(camera.rotation);
+        ShotCamera.updateProjectionMatrix();
+        ShotCamera.updateMatrixWorld();
+        ShotHelper.update();
+
+    };
+
+
+    shapes.forEach(updateObjectVerticies);
     composer.render();
 }
 
