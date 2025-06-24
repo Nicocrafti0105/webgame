@@ -6,13 +6,41 @@ const Noise = NoiseModule.Noise;
 const globalNoise = new Noise(Math.random() * 454.8456101);
 
 const baseFrequency = 0.006;
-const baseAmplitude = 150;
-const octaves = 7;
+const baseAmplitude = 120;
+const octaves = 8;
 const persistence = 0.75;
-const lacunarity = 1.6;
-const scale = 0.4;
+const lacunarity = 1.7;
+const scale = 0.3;
 const OUTLINE_HEIGHT_OFFSET = 1000;
-const BaseDetail = 64; // Base detail level
+const BaseDetail = 64;
+
+
+async function GetShader(url) {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Failed to load shader');
+    return await response.text();
+}
+
+let TerrainVertexShader = NaN;
+let TerrainFragmentShader = NaN;
+
+async function GetRessources() {
+    TerrainVertexShader = await GetShader('./js/Shader/terrain.vert');
+    TerrainFragmentShader = await GetShader('./js/Shader/terrain.frag');
+    const GroundMat = new THREE.ShaderMaterial({
+        vertexShader: TerrainVertexShader,
+        fragmentShader: TerrainFragmentShader,
+        uniforms: {
+            minHeight: { value: -50 },
+            maxHeight: { value: 150 },
+        },
+        side: THREE.DoubleSide,
+        wireframe: false,
+    });
+    return GroundMat;
+}
+
+const TerrainMat = await GetRessources()
 
 export function generateChunk(pos = new THREE.Vector2(0, 0), Size) {
     const worldX = pos.x * Size;
@@ -75,8 +103,9 @@ export function generateChunk(pos = new THREE.Vector2(0, 0), Size) {
     geometry.setIndex(indices);
     geometry.computeVertexNormals();
 
-    const terrainMaterial = new THREE.MeshStandardMaterial({ color: 0x88cc88, flatShading: true, side: THREE.DoubleSide });
+    let terrainMaterial = TerrainMat
     const terrainMesh = new THREE.Mesh(geometry, terrainMaterial);
+
     terrainMesh.position.set(worldX, 0, worldZ);
     terrainMesh.name = 'chunk';
     terrainMesh.castShadow = true;
@@ -91,175 +120,42 @@ export function generateChunk(pos = new THREE.Vector2(0, 0), Size) {
     return terrainMesh;
 }
 
-function createLODGeometry(baseGeometry, size, lodLevel, baseDetail) {
-    const step = Math.pow(2, lodLevel);
-    const lodVertices = [];
-    const vertexMap = new Map();
-    const basePositions = baseGeometry.attributes.position.array;
-
-    function getBaseVertex(x, z) {
-        const index = x * (size + 1) + z;
-        return [
-            basePositions[index * 3],
-            basePositions[index * 3 + 1],
-            basePositions[index * 3 + 2]
-        ];
-    }
-
-    let idx = 0;
-    for (let x = 0; x <= size; x++) {
-        for (let z = 0; z <= size; z++) {
-            const isBorder = (x === 0 || x === size || z === 0 || z === size);
-            if (isBorder || (x % step === 0 && z % step === 0)) {
-                const key = `${x},${z}`;
-                if (!vertexMap.has(key)) {
-                    const [vx, vy, vz] = getBaseVertex(x, z);
-                    lodVertices.push(vx, vy, vz);
-                    vertexMap.set(key, idx++);
-                }
-            }
-        }
-    }
-
-    if (step > 1) {
-        for (let x = 0; x <= size; x += step) {
-            for (let z = 0; z <= size; z++) {
-                if (z % step !== 0 && (x === 0 || x === size || z === 0 || z === size)) {
-                    const key = `${x},${z}`;
-                    if (!vertexMap.has(key)) {
-                        const [vx, vy, vz] = getBaseVertex(x, z);
-                        lodVertices.push(vx, vy, vz);
-                        vertexMap.set(key, idx++);
-                    }
-                }
-            }
-        }
-        for (let z = 0; z <= size; z += step) {
-            for (let x = 0; x <= size; x++) {
-                if (x % step !== 0 && (x === 0 || x === size || z === 0 || z === size)) {
-                    const key = `${x},${z}`;
-                    if (!vertexMap.has(key)) {
-                        const [vx, vy, vz] = getBaseVertex(x, z);
-                        lodVertices.push(vx, vy, vz);
-                        vertexMap.set(key, idx++);
-                    }
-                }
-            }
-        }
-    }
-
-    const lodIndices = [];
-    for (let x = 0; x < size; x += step) {
-        for (let z = 0; z < size; z += step) {
-            const keys = [
-                `${x},${z}`,
-                `${Math.min(x + step, size)},${z}`,
-                `${Math.min(x + step, size)},${Math.min(z + step, size)}`,
-                `${x},${Math.min(z + step, size)}`
-            ];
-            if (keys.every(k => vertexMap.has(k))) {
-                const a = vertexMap.get(keys[0]);
-                const b = vertexMap.get(keys[1]);
-                const c = vertexMap.get(keys[2]);
-                const d = vertexMap.get(keys[3]);
-                lodIndices.push(a, b, d);
-                lodIndices.push(b, c, d);
-            }
-        }
-    }
-
-    if (step > 1) {
-        for (let x = 0; x <= size; x += step) {
-            for (let z = 0; z < size; z++) {
-                if (z % step !== 0) {
-                    const z0 = z - (z % step);
-                    const z1 = z0 + step;
-                    if (z1 <= size) {
-                        const keys = [
-                            `${x},${z}`,
-                            `${x},${z+1}`,
-                            `${x},${z0}`,
-                            `${x},${z1}`
-                        ];
-                        if (vertexMap.has(keys[0]) && vertexMap.has(keys[2]) && vertexMap.has(keys[3])) {
-                            lodIndices.push(vertexMap.get(keys[0]), vertexMap.get(keys[2]), vertexMap.get(keys[3]));
-                        }
-                        if (vertexMap.has(keys[0]) && vertexMap.has(keys[1]) && vertexMap.has(keys[3])) {
-                            lodIndices.push(vertexMap.get(keys[0]), vertexMap.get(keys[3]), vertexMap.get(keys[1]));
-                        }
-                    }
-                }
-            }
-        }
-        for (let z = 0; z <= size; z += step) {
-            for (let x = 0; x < size; x++) {
-                if (x % step !== 0) {
-                    const x0 = x - (x % step);
-                    const x1 = x0 + step;
-                    if (x1 <= size) {
-                        const keys = [
-                            `${x},${z}`,
-                            `${x+1},${z}`,
-                            `${x0},${z}`,
-                            `${x1},${z}`
-                        ];
-                        if (vertexMap.has(keys[0]) && vertexMap.has(keys[2]) && vertexMap.has(keys[3])) {
-                            lodIndices.push(vertexMap.get(keys[0]), vertexMap.get(keys[2]), vertexMap.get(keys[3]));
-                        }
-                        if (vertexMap.has(keys[0]) && vertexMap.has(keys[1]) && vertexMap.has(keys[3])) {
-                            lodIndices.push(vertexMap.get(keys[0]), vertexMap.get(keys[3]), vertexMap.get(keys[1]));
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    for (let x = 0; x < size; x++) {
-        let keys = [`${x},0`, `${x+1},0`, `${x+1},1`, `${x},1`];
-        if (keys.every(k => vertexMap.has(k))) {
-            const a = vertexMap.get(keys[0]);
-            const b = vertexMap.get(keys[1]);
-            const c = vertexMap.get(keys[2]);
-            const d = vertexMap.get(keys[3]);
-            lodIndices.push(a, b, d);
-            lodIndices.push(b, c, d);
-        }
-        keys = [`${x},${size-1}`, `${x+1},${size-1}`, `${x+1},${size}`, `${x},${size}`];
-        if (keys.every(k => vertexMap.has(k))) {
-            const a = vertexMap.get(keys[0]);
-            const b = vertexMap.get(keys[1]);
-            const c = vertexMap.get(keys[2]);
-            const d = vertexMap.get(keys[3]);
-            lodIndices.push(a, b, d);
-            lodIndices.push(b, c, d);
-        }
-    }
-
-    for (let z = 0; z < size; z++) {
-        let keys = [`0,${z}`, `1,${z}`, `1,${z+1}`, `0,${z+1}`];
-        if (keys.every(k => vertexMap.has(k))) {
-            const a = vertexMap.get(keys[0]);
-            const b = vertexMap.get(keys[1]);
-            const c = vertexMap.get(keys[2]);
-            const d = vertexMap.get(keys[3]);
-            lodIndices.push(a, b, d);
-            lodIndices.push(b, c, d);
-        }
-        keys = [`${size-1},${z}`, `${size},${z}`, `${size},${z+1}`, `${size-1},${z+1}`];
-        if (keys.every(k => vertexMap.has(k))) {
-            const a = vertexMap.get(keys[0]);
-            const b = vertexMap.get(keys[1]);
-            const c = vertexMap.get(keys[2]);
-            const d = vertexMap.get(keys[3]);
-            lodIndices.push(a, b, d);
-            lodIndices.push(b, c, d);
-        }
-    }
-
+function createLODGeometry(baseGeometry, size, lodLevel) {
     const lodGeometry = new THREE.BufferGeometry();
-    lodGeometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(lodVertices), 3));
-    lodGeometry.setIndex(lodIndices);
+    const basePositions = baseGeometry.attributes.position.array;
+    const newPositions = [];
+    const newIndices = [];
+
+    const step = Math.pow(2, lodLevel)
+    const lodSize = Math.floor(size / step);
+
+
+    for (let x = 0; x <= size; x += step) {
+        for (let z = 0; z <= size; z += step) {
+            const originalIndex = x * (size + 1) + z;
+
+            newPositions.push(
+                basePositions[originalIndex * 3],
+                basePositions[originalIndex * 3 + 1],
+                basePositions[originalIndex * 3 + 2]
+            );
+        }
+    }
+
+    lodGeometry.setAttribute('position', new THREE.Float32BufferAttribute(newPositions, 3));
+
+    for (let x = 0; x < lodSize; x++) {
+        for (let z = 0; z < lodSize; z++) {
+            const a = x * (lodSize + 1) + z;
+            const b = (x + 1) * (lodSize + 1) + z;
+            const c = (x + 1) * (lodSize + 1) + (z + 1);
+            const d = x * (lodSize + 1) + (z + 1);
+
+            newIndices.push(a, b, d);
+            newIndices.push(b, c, d);
+        }
+    }
+    lodGeometry.setIndex(newIndices);
     lodGeometry.computeVertexNormals();
 
     return lodGeometry;
@@ -271,6 +167,7 @@ export function updateChunkLOD(chunk, camera) {
     const cameraDistance = camera.position.distanceTo(realPos);
     let lod = 0;
 
+
     if (cameraDistance > vars.chunkSize * vars.LodFactor) lod = 1;
     if (cameraDistance > vars.chunkSize * vars.LodFactor * 2.5) lod = 2;
     if (cameraDistance > vars.chunkSize * vars.LodFactor * 4) lod = 3;
@@ -278,9 +175,23 @@ export function updateChunkLOD(chunk, camera) {
     if (lod >= chunk.userData.lodLevels.length) lod = chunk.userData.lodLevels.length - 1;
 
     if (lod !== chunk.userData.currentLod) {
-        chunk.geometry.dispose();
+        if (chunk.geometry && chunk.geometry !== chunk.userData.lodLevels[lod]) {
+            chunk.geometry.dispose();
+        }
         chunk.geometry = chunk.userData.lodLevels[lod];
         chunk.userData.currentLod = lod;
+    }
+
+    if (chunk.material && chunk.material.uniforms) {
+        const minAlpha = 0.3;
+        const maxAlpha = 1.0;
+        const alpha = maxAlpha - (lod / (chunk.userData.lodLevels.length - 1)) * (maxAlpha - minAlpha);
+        chunk.material.transparent = alpha < 1.0;
+        if (!chunk.material.uniforms.uAlpha) {
+            chunk.material.uniforms.uAlpha = { value: alpha };
+        } else {
+            chunk.material.uniforms.uAlpha.value = alpha;
+        }
     }
 }
 

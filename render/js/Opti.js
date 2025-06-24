@@ -24,3 +24,7 @@ export function performFrustumCulling(camera, scene, margin = 0.2) {
         }
     });
 }
+
+export function performOcclusionCulling(camera, scene) {
+
+}

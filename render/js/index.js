@@ -7,7 +7,7 @@ import Stats from 'three/addons/libs/stats.module.js';
 import { GUI } from 'dat.gui';
 
 import { BoxShape, SphereShape, ConeShape, updateObjectVerticies } from './shapes.js';
-import { performFrustumCulling } from './Opti.js';
+import { performFrustumCulling, performOcclusionCulling } from './Opti.js';
 import { generateChunk, updateChunkLOD } from './generation.js';
 
 /////////////////// GLOBALS VARS \\\\\\\\\\\\\\\\\\\
@@ -37,7 +37,7 @@ const displayText = document.querySelector('#displayText');
 /////////////////// SETUP \\\\\\\\\\\\\\\\\\\
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xcdcde5);
+scene.background = new THREE.Color(0x98d1fd);
 
 const camera = new THREE.PerspectiveCamera(FOV, ASPECT, NEAR, FAR);
 camera.position.set(0, 40, -10);
@@ -117,34 +117,6 @@ class Torch {
 
 export const shapes = [];
 
-
-async function GetShader(url) {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error('Failed to load shader');
-    return await response.text();
-}
-
-let TerrainVertexShader = NaN;
-let TerrainFragmentShader = NaN;
-
-async function GetRessources() {
-    TerrainVertexShader = await GetShader('./js/Shader/terrain.vert');
-    TerrainFragmentShader = await GetShader('./js/Shader/terrain.frag');
-
-    const GroundMat = new THREE.ShaderMaterial({
-        vertexShader: TerrainVertexShader,
-        fragmentShader: TerrainFragmentShader,
-        uniforms: {
-            minHeight: { value: -50 },
-            maxHeight: { value: 150 },
-        },
-        side: THREE.DoubleSide,
-        wireframe: false,
-    });
-    return GroundMat;
-}
-
-
 class ChunkManager {
     constructor(scene, camera, vars) {
         this.scene = scene;
@@ -187,7 +159,7 @@ class ChunkManager {
 
         const newActiveChunks = new Map();
         const renderDistance = this.vars.renderDistance;
-
+        
 
         for (let x = currentChunkX - renderDistance; x <= currentChunkX + renderDistance; x++) {
             for (let z = currentChunkZ - renderDistance; z <= currentChunkZ + renderDistance; z++) {
@@ -230,7 +202,7 @@ class ChunkManager {
 
 let chunkManager;
 
-function init() {
+async function init() {
     if (chunkManager) {
         chunkManager.disposeAllChunks();
     }
@@ -256,7 +228,7 @@ export const vars = {
     wireColor: 0xe84a4a,
     wireframeEnabled: false,
     chunkSize: 8,
-    renderDistance: 32,
+    renderDistance: 16,
     LodFactor: 4,
     terrainDepth: 16,
     terrainWidth: 16,
@@ -419,6 +391,21 @@ scene.add(ShotHelper, ShotCamera);
 ShotHelper.visible = false;
 
 
+/////////////////// LOOP \\\\\\\\\\\\\\\\\\\
+
+let time = 10
+
+function updateTime() {
+    if (time < 0) { time = 24 }
+    if (time >= 24) { time = 0}
+    time = time + 0.01;
+    //directionalLight.intensity = 2
+    //ambientLight.intensity = 2
+    //scene.background.setHSL(0.6, 0.1, 0.5 * ( Math.cos((Math.PI / 12) * (time -12)))); 
+
+}
+
+
 
 /////////////////// LOOP \\\\\\\\\\\\\\\\\\\
 let previousTime = performance.now();
@@ -495,14 +482,16 @@ function loop(time) {
         camera.rotation.y !== lastCameraRotation.y ||
         camera.rotation.z !== lastCameraRotation.z
     ) {
-        chunkManager.update(camera.position);
-        chunkManager.updateAllLODs();
-        performFrustumCulling(camera, scene);
+        //chunkManager.update(camera.position);
+        //chunkManager.updateAllLODs();
+        //performFrustumCulling(camera, scene);
+        //performOcclusionCulling(camera, scene);
         lastCameraPosition.copy(camera.position);
         lastCameraRotation.copy(camera.rotation);
     }
-    if(keys['n']) {
+    if(keys['v']) {
         performFrustumCulling(camera, scene);
+        performOcclusionCulling(camera, scene);
         chunkManager.update(camera.position);
         chunkManager.updateAllLODs();
         ShotHelper.visible = true;
@@ -513,6 +502,8 @@ function loop(time) {
         ShotHelper.update();
 
     };
+
+    updateTime()
 
 
     shapes.forEach(updateObjectVerticies);

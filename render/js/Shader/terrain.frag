@@ -12,7 +12,7 @@ void main() {
     vec3 green = vec3(0.18, 0.75, 0.42);
     vec3 white = vec3(0.97, 0.98, 0.97);
 
-    float waterToSand = smoothstep(-20.0, -5.0, vHeight);
+    float waterToSand = smoothstep(-20.0, -10.0, vHeight);
     float sandToStone= smoothstep(-8.0, -4.0, vHeight);
     float stoneToGreen = smoothstep(-2.0, 0.0, vHeight);
     float greenToWhite = smoothstep(0.0, 30.0, vHeight);
